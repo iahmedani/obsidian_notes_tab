@@ -3,12 +3,20 @@ import {
 	MarkdownRenderChild,
 	MarkdownRenderer,
 	Plugin,
+	setIcon,
 } from "obsidian";
 import {
 	DEFAULT_SETTINGS,
 	TabbedContainersSettings,
 	TabbedContainersSettingTab,
 } from "./settings";
+
+/* ================================================================
+   Constants
+   ================================================================ */
+
+/** Custom MIME type used to identify tab-reorder drags vs external content drops. */
+const TAB_REORDER_MIME = "application/x-tabbed-container-reorder";
 
 /* ================================================================
    Tab Parsing
@@ -104,7 +112,8 @@ function serializeTabs(tabs: ParsedTab[]): string {
 
 /**
  * Replaces the content of a ```tabs code block in the source file.
- * Uses getSectionInfo() to find the exact line range.
+ * Uses getSectionInfo() to locate the exact line range of the code block,
+ * then replaces everything between the opening and closing fences.
  */
 async function updateSourceBlock(
 	plugin: TabbedContainersPlugin,
@@ -123,7 +132,7 @@ async function updateSourceBlock(
 
 	// sectionInfo.lineStart = the ```tabs line
 	// sectionInfo.lineEnd   = the closing ``` line
-	// We replace everything between them (exclusive of the fences).
+	// Replace everything between the fences (exclusive of fence lines).
 	const before = lines.slice(0, sectionInfo.lineStart + 1);
 	const after = lines.slice(sectionInfo.lineEnd);
 
@@ -167,6 +176,11 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 		el.empty();
 		el.addClass("tabbed-container");
 
+		// Apply tab style variant from settings
+		const style = this.plugin.settings.tabStyle;
+		el.toggleClass("tabbed-container--pill", style === "pill");
+		el.toggleClass("tabbed-container--underline", style === "underline");
+
 		if (this.tabs.length === 0) {
 			this.renderEmptyState(el);
 			return;
@@ -176,11 +190,18 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 		tabBar.setAttribute("role", "tablist");
 		const tabContentArea = el.createDiv({ cls: "tabbed-container-content" });
 
+		// Underline indicator (only used in underline style)
 		const indicator = tabBar.createDiv({ cls: "tabbed-container-indicator" });
 		const tabButtons: HTMLElement[] = [];
 
 		this.tabs.forEach((tab, index) => {
-			const btn = this.createTabButton(tab, index, tabButtons, tabContentArea, indicator);
+			const btn = this.createTabButton(
+				tab,
+				index,
+				tabButtons,
+				tabContentArea,
+				indicator,
+			);
 			tabButtons.push(btn);
 			tabBar.appendChild(btn);
 		});
@@ -190,24 +211,26 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 			cls: "tabbed-container-add-btn",
 			attr: { "aria-label": "Add new tab", title: "Add tab" },
 		});
-		addBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`;
+		setIcon(addBtn, "plus");
 		addBtn.addEventListener("click", () => this.addTab());
 
-		// Setup drag-and-drop reordering on the tab bar
-		this.setupTabReordering(tabBar, tabButtons, tabContentArea, indicator);
+		// Drag-and-drop reordering for the tab bar
+		this.setupTabReordering(tabBar);
 
-		// Render initial active tab
+		// Clamp active index
 		if (this.activeIndex >= this.tabs.length) {
 			this.activeIndex = Math.max(0, this.tabs.length - 1);
 		}
+
 		this.renderTabContent(this.activeIndex, tabContentArea);
 		this.updateActiveStates(tabButtons);
 
+		// Position underline indicator after layout
 		requestAnimationFrame(() => {
 			this.positionIndicator(indicator, tabButtons);
 		});
 
-		// Setup drop zone on content area for dropping external content
+		// Drop zone for external content
 		this.setupContentDropZone(tabContentArea);
 	}
 
@@ -245,7 +268,7 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 			},
 		});
 
-		// Icon
+		// Icon (emoji prefix)
 		if (tab.icon) {
 			btn.createSpan({ text: tab.icon, cls: "tabbed-container-tab-icon" });
 		}
@@ -261,7 +284,7 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 			cls: "tabbed-container-tab-delete",
 			attr: { "aria-label": "Delete tab", title: "Delete tab" },
 		});
-		delBtn.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
+		setIcon(delBtn, "x");
 		delBtn.addEventListener("click", (e) => {
 			e.stopPropagation();
 			this.deleteTab(index);
@@ -347,7 +370,15 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 		indicator.style.width = `${activeBtn.offsetWidth}px`;
 	}
 
-	/* ---- Render tab Markdown content ---- */
+	/* ---- Render tab Markdown content ----
+	 *
+	 * Uses MarkdownRenderer.render() with three critical bindings:
+	 * 1. `sourcePath` — so task toggles update the correct file, wikilinks resolve
+	 * 2. `this` (Component) — child components register here for lifecycle cleanup
+	 * 3. `ctx.addChild()` — ties our component to Obsidian's rendering context
+	 *
+	 * This is what makes tab content a "first-class citizen".
+	 */
 
 	private renderTabContent(index: number, container: HTMLElement): void {
 		const tab = this.tabs[index];
@@ -362,7 +393,9 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 			const placeholder = contentEl.createDiv({
 				cls: "tabbed-container-content-placeholder",
 			});
-			placeholder.setText("Drop content here or edit the code block to add content.");
+			placeholder.setText(
+				"Drop content here or edit the code block to add content.",
+			);
 			return;
 		}
 
@@ -390,7 +423,11 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 		input.focus();
 		input.select();
 
+		let committed = false;
 		const commit = () => {
+			if (committed) return;
+			committed = true;
+
 			const newTitle = input.value.trim() || tab.title;
 			tab.title = newTitle;
 			const newLabel = createSpan({
@@ -398,17 +435,6 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 				cls: "tabbed-container-tab-label",
 			});
 			input.replaceWith(newLabel);
-
-			// Re-bind double-click on the new label
-			const btn = newLabel.closest(".tabbed-container-tab-button");
-			if (btn) {
-				newLabel.addEventListener("dblclick", (e) => {
-					e.preventDefault();
-					e.stopPropagation();
-					this.startRename(newLabel, index);
-				});
-			}
-
 			this.persistTabs();
 		};
 
@@ -422,7 +448,6 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 				input.blur();
 			}
 		});
-		// Prevent click from bubbling to the tab button
 		input.addEventListener("click", (e) => e.stopPropagation());
 	}
 
@@ -439,7 +464,7 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 	}
 
 	private deleteTab(index: number): void {
-		if (this.tabs.length <= 1) return; // Keep at least one tab
+		if (this.tabs.length <= 1) return;
 		this.tabs.splice(index, 1);
 		if (this.activeIndex >= this.tabs.length) {
 			this.activeIndex = this.tabs.length - 1;
@@ -451,12 +476,7 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 
 	/* ---- Drag-and-drop: tab reordering ---- */
 
-	private setupTabReordering(
-		tabBar: HTMLElement,
-		_tabButtons: HTMLElement[],
-		_contentArea: HTMLElement,
-		_indicator: HTMLElement,
-	): void {
+	private setupTabReordering(tabBar: HTMLElement): void {
 		let dragIndex = -1;
 
 		tabBar.addEventListener("dragstart", (e: DragEvent) => {
@@ -469,7 +489,9 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 			if (dragIndex < 0) return;
 
 			btn.addClass("is-dragging");
-			e.dataTransfer?.setData("text/plain", String(dragIndex));
+
+			// Use custom MIME type so content drop zone can distinguish reorder drags
+			e.dataTransfer?.setData(TAB_REORDER_MIME, String(dragIndex));
 			if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
 		});
 
@@ -482,18 +504,16 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 			) as HTMLElement | null;
 			if (!btn) return;
 
-			// Visual drop indicator
+			// Clear previous indicators
 			tabBar
 				.querySelectorAll(".tabbed-container-tab-button")
-				.forEach((b) => b.removeClass("drag-over-left", "drag-over-right"));
+				.forEach((b) =>
+					b.removeClass("drag-over-left", "drag-over-right"),
+				);
 
 			const rect = btn.getBoundingClientRect();
 			const midX = rect.left + rect.width / 2;
-			if (e.clientX < midX) {
-				btn.addClass("drag-over-left");
-			} else {
-				btn.addClass("drag-over-right");
-			}
+			btn.addClass(e.clientX < midX ? "drag-over-left" : "drag-over-right");
 		});
 
 		tabBar.addEventListener("dragleave", (e: DragEvent) => {
@@ -505,9 +525,7 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 
 		tabBar.addEventListener("drop", (e: DragEvent) => {
 			e.preventDefault();
-			tabBar
-				.querySelectorAll(".tabbed-container-tab-button")
-				.forEach((b) => b.removeClass("drag-over-left", "drag-over-right", "is-dragging"));
+			this.clearDragStyles(tabBar);
 
 			const btn = (e.target as HTMLElement).closest(
 				".tabbed-container-tab-button",
@@ -525,12 +543,12 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 				dropIndex--;
 			}
 
-			// Reorder the tabs array
+			// Reorder
 			const [movedTab] = this.tabs.splice(dragIndex, 1);
 			if (!movedTab) return;
 			this.tabs.splice(dropIndex, 0, movedTab);
 
-			// Adjust active index
+			// Adjust active index to follow the previously-active tab
 			if (this.activeIndex === dragIndex) {
 				this.activeIndex = dropIndex;
 			} else if (
@@ -549,15 +567,23 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 		});
 
 		tabBar.addEventListener("dragend", () => {
-			tabBar
-				.querySelectorAll(".tabbed-container-tab-button")
-				.forEach((b) => b.removeClass("drag-over-left", "drag-over-right", "is-dragging"));
+			this.clearDragStyles(tabBar);
 			dragIndex = -1;
 		});
 	}
 
+	private clearDragStyles(tabBar: HTMLElement): void {
+		tabBar
+			.querySelectorAll(".tabbed-container-tab-button")
+			.forEach((b) =>
+				b.removeClass("drag-over-left", "drag-over-right", "is-dragging"),
+			);
+	}
+
 	private getTabButtonIndex(tabBar: HTMLElement, btn: HTMLElement): number {
-		const buttons = tabBar.querySelectorAll(".tabbed-container-tab-button");
+		const buttons = tabBar.querySelectorAll(
+			".tabbed-container-tab-button",
+		);
 		let idx = -1;
 		buttons.forEach((b, i) => {
 			if (b === btn) idx = i;
@@ -569,20 +595,19 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 
 	private setupContentDropZone(contentArea: HTMLElement): void {
 		contentArea.addEventListener("dragover", (e: DragEvent) => {
-			// Only accept external content (not tab reordering)
-			if (
-				e.dataTransfer?.types.includes("text/plain") &&
-				!e.dataTransfer.types.includes("Files")
-			) {
-				// Check if this is a tab reorder drag (has numeric data)
-				// We accept only non-numeric drops (text content)
-			}
+			// Ignore tab-reorder drags — they target the tab bar, not the content
+			if (e.dataTransfer?.types.includes(TAB_REORDER_MIME)) return;
+
 			e.preventDefault();
 			if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
 			contentArea.addClass("drop-active");
 		});
 
-		contentArea.addEventListener("dragleave", () => {
+		contentArea.addEventListener("dragleave", (e: DragEvent) => {
+			// Only remove the highlight when leaving the content area entirely,
+			// not when moving between child elements.
+			const related = e.relatedTarget as Node | null;
+			if (related && contentArea.contains(related)) return;
 			contentArea.removeClass("drop-active");
 		});
 
@@ -590,17 +615,39 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 			e.preventDefault();
 			contentArea.removeClass("drop-active");
 
+			// Ignore tab-reorder drags
+			if (e.dataTransfer?.types.includes(TAB_REORDER_MIME)) return;
+
 			const tab = this.tabs[this.activeIndex];
 			if (!tab) return;
 
-			// Get dropped text content
-			const text = e.dataTransfer?.getData("text/plain");
-			if (!text || /^\d+$/.test(text)) return; // Ignore tab reorder numeric data
+			let droppedContent = "";
 
-			// Append to current tab's content
+			// Obsidian internal link drag (file explorer or editor link)
+			// provides text/plain with a wikilink or file path
+			const textData = e.dataTransfer?.getData("text/plain") ?? "";
+
+			// Handle file drops — create wikilinks for Obsidian-compatible files
+			const files = e.dataTransfer?.files;
+			if (files && files.length > 0) {
+				const links: string[] = [];
+				for (let i = 0; i < files.length; i++) {
+					const file = files[i];
+					if (file) {
+						const name = file.name.replace(/\.[^.]+$/, "");
+						links.push(`![[${name}]]`);
+					}
+				}
+				droppedContent = links.join("\n");
+			} else if (textData) {
+				droppedContent = textData;
+			}
+
+			if (!droppedContent) return;
+
 			tab.content = tab.content
-				? `${tab.content}\n\n${text}`
-				: text;
+				? `${tab.content}\n\n${droppedContent}`
+				: droppedContent;
 
 			this.persistTabs();
 		});
@@ -611,7 +658,7 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 	private persistTabs(): void {
 		const newSource = serializeTabs(this.tabs);
 		updateSourceBlock(this.plugin, this.ctx, this.containerEl, newSource);
-		// Obsidian will re-render the block automatically after vault.modify()
+		// Obsidian re-renders the block automatically after vault.modify()
 	}
 }
 
@@ -627,7 +674,11 @@ export default class TabbedContainersPlugin extends Plugin {
 
 		this.registerMarkdownCodeBlockProcessor(
 			"tabs",
-			(source: string, el: HTMLElement, ctx: MarkdownPostProcessorContext) => {
+			(
+				source: string,
+				el: HTMLElement,
+				ctx: MarkdownPostProcessorContext,
+			) => {
 				const tabs = parseTabs(source);
 				const component = new TabbedContainerComponent(
 					el,

@@ -1,13 +1,13 @@
 import { App, PluginSettingTab, Setting } from "obsidian";
 import TabbedContainersPlugin from "./main";
 
+export type TabStyle = "underline" | "pill";
+
 export interface TabbedContainersSettings {
-	defaultTabIndex: number;
-	tabStyle: "underline" | "pill";
+	tabStyle: TabStyle;
 }
 
 export const DEFAULT_SETTINGS: TabbedContainersSettings = {
-	defaultTabIndex: 0,
 	tabStyle: "underline",
 };
 
@@ -34,7 +34,7 @@ export class TabbedContainersSettingTab extends PluginSettingTab {
 					.addOption("pill", "Pill / Filled")
 					.setValue(this.plugin.settings.tabStyle)
 					.onChange(async (value) => {
-						this.plugin.settings.tabStyle = value as TabbedContainersSettings["tabStyle"];
+						this.plugin.settings.tabStyle = value as TabStyle;
 						await this.plugin.saveSettings();
 					}),
 			);

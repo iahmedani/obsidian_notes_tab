@@ -103,44 +103,9 @@ Access via **Settings** > **Community plugins** > **Tabbed Containers**.
 
 ## Architecture
 
-Understanding how native Markdown rendering works inside the tabs:
+### Core principle: first-class Markdown rendering
 
-### The rendering pipeline
-
-```
-┌─────────────────────────────────────────────────┐
-│  ```tabs code block detected by Obsidian         │
-│                                                   │
-│  registerMarkdownCodeBlockProcessor("tabs", ...)  │
-└──────────────────────┬──────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────┐
-│  parseTabs(source) → ParsedTab[]                 │
-│  Splits raw text on `--- Title` delimiters       │
-└──────────────────────┬──────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────┐
-│  TabbedContainerComponent (MarkdownRenderChild)  │
-│  Registered via ctx.addChild(component)          │
-└──────────────────────┬──────────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────────┐
-│  MarkdownRenderer.render(                        │
-│    app,          // Obsidian App instance         │
-│    tab.content,  // Raw Markdown string           │
-│    contentEl,    // Target DOM element            │
-│    sourcePath,   // Current note's file path      │
-│    this          // Component for lifecycle       │
-│  )                                                │
-└─────────────────────────────────────────────────┘
-```
-
-### Why this matters
-
-Three parameters make tabs behave like native note content:
+The #1 problem with existing tab plugins is that content inside tabs doesn't behave like normal note content — task checkboxes don't toggle, wikilinks don't resolve, Dataview doesn't render. This plugin solves it with a three-part binding:
 
 1. **`sourcePath`** — Passed from `MarkdownPostProcessorContext` to `MarkdownRenderer.render()`. This is how Obsidian knows which file to update when a task checkbox is toggled, and how wikilinks resolve relative to the current note.
 
@@ -148,13 +113,52 @@ Three parameters make tabs behave like native note content:
 
 3. **`ctx.addChild(component)`** — Registers our component with Obsidian's rendering context. This ties the container's lifecycle to the note view itself, so cleanup happens automatically when the note is closed or the code block is re-rendered.
 
+### Source-synced editing
+
+All interactive UI actions write back to the Markdown source so notes remain portable and version-controllable:
+
+```
+  User action (rename, add, delete, reorder, content drop)
+                       │
+                       ▼
+  Modify in-memory tabs[] array
+                       │
+                       ▼
+  serializeTabs(tabs) → reconstruct "--- Title\ncontent" format
+                       │
+                       ▼
+  ctx.getSectionInfo(el) → find code block line range in file
+                       │
+                       ▼
+  app.vault.modify(file, newContent) → write to disk
+                       │
+                       ▼
+  Obsidian auto-re-renders the code block
+```
+
+### Drag-and-drop architecture
+
+Two drag systems coexist without conflict:
+
+- **Tab reordering** uses a custom MIME type (`application/x-tabbed-container-reorder`) so it's cleanly distinguished from external drops.
+- **Content drops** accept `text/plain` (including Obsidian internal wikilink drags from the file explorer) and file drops (converted to `![[filename]]` embeds). The drop zone ignores any drag carrying the custom reorder MIME.
+
+### Style variants
+
+The `tabStyle` setting applies a CSS modifier class on the container:
+
+| Style | Class | Behavior |
+|---|---|---|
+| Underline | `tabbed-container--underline` | Animated bottom border indicator slides between tabs |
+| Pill | `tabbed-container--pill` | Active tab gets a filled background using `--interactive-accent` |
+
 ### File structure
 
 ```
 src/
-  main.ts       # Plugin entry, code block processor, TabbedContainerComponent
-  settings.ts   # Settings interface, defaults, and settings tab UI
-styles.css      # Theme-adaptive CSS using Obsidian custom properties
+  main.ts       # Plugin lifecycle, code block processor, TabbedContainerComponent, source editing
+  settings.ts   # Settings interface (tabStyle), defaults, settings tab UI
+styles.css      # Theme-adaptive CSS — underline + pill variants, drag cues, drop zones
 manifest.json   # Plugin metadata
 ```
 

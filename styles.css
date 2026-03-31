@@ -1,6 +1,7 @@
 /* ============================================================
    Tabbed Containers – Theme-adaptive styles
    Uses Obsidian CSS custom properties for seamless theme integration.
+   No hardcoded colors anywhere.
    ============================================================ */
 
 /* --- Container --- */
@@ -29,7 +30,7 @@
 	display: none;
 }
 
-/* --- Tab button --- */
+/* --- Tab button (shared base) --- */
 .tabbed-container-tab-button {
 	position: relative;
 	display: flex;
@@ -48,7 +49,6 @@
 	transition: color 0.15s ease, background-color 0.15s ease;
 	white-space: nowrap;
 	line-height: 1.4;
-	border-radius: 6px 6px 0 0;
 	user-select: none;
 }
 
@@ -60,12 +60,77 @@
 .tabbed-container-tab-button:focus-visible {
 	outline: 2px solid var(--interactive-accent);
 	outline-offset: -2px;
-	border-radius: 4px;
 }
 
-.tabbed-container-tab-button.is-active {
+/* ============================================================
+   UNDERLINE STYLE (default)
+   ============================================================ */
+
+.tabbed-container--underline .tabbed-container-tab-button {
+	border-radius: 6px 6px 0 0;
+}
+
+.tabbed-container--underline .tabbed-container-tab-button.is-active {
 	color: var(--interactive-accent);
 }
+
+/* Animated underline indicator */
+.tabbed-container-indicator {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	height: 2px;
+	background-color: var(--interactive-accent);
+	border-radius: 2px 2px 0 0;
+	transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+	            width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+	pointer-events: none;
+}
+
+/* ============================================================
+   PILL STYLE
+   ============================================================ */
+
+.tabbed-container--pill .tabbed-container-tab-bar {
+	gap: 4px;
+	padding: 6px 8px;
+	border-bottom: none;
+}
+
+.tabbed-container--pill .tabbed-container-tab-button {
+	border-radius: 6px;
+	padding: 6px 12px;
+	padding-right: 28px;
+}
+
+.tabbed-container--pill .tabbed-container-tab-button.is-active {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.tabbed-container--pill .tabbed-container-tab-button.is-active:hover {
+	background-color: var(--interactive-accent-hover);
+	color: var(--text-on-accent);
+}
+
+/* Hide the underline indicator in pill mode */
+.tabbed-container--pill .tabbed-container-indicator {
+	display: none;
+}
+
+/* Delete button needs adjusted color on active pill tab */
+.tabbed-container--pill .tabbed-container-tab-button.is-active .tabbed-container-tab-delete {
+	color: var(--text-on-accent);
+}
+
+.tabbed-container--pill .tabbed-container-tab-button.is-active .tabbed-container-tab-delete:hover {
+	background-color: rgba(0, 0, 0, 0.15);
+	color: var(--text-on-accent);
+}
+
+/* ============================================================
+   Tab button sub-elements
+   ============================================================ */
 
 /* --- Tab icon (emoji) --- */
 .tabbed-container-tab-icon {
@@ -76,7 +141,7 @@
 
 /* --- Tab label --- */
 .tabbed-container-tab-label {
-	pointer-events: none; /* let clicks pass through to button, dblclick handled on button */
+	pointer-events: none;
 }
 
 /* --- Inline rename input --- */
@@ -113,6 +178,12 @@
 	cursor: pointer;
 }
 
+/* Scale down Obsidian's setIcon SVG to fit the 18px container */
+.tabbed-container-tab-delete svg {
+	width: 12px;
+	height: 12px;
+}
+
 .tabbed-container-tab-button:hover .tabbed-container-tab-delete {
 	opacity: 1;
 }
@@ -139,6 +210,11 @@
 	transition: color 0.15s ease, background-color 0.15s ease;
 }
 
+.tabbed-container-add-btn svg {
+	width: 14px;
+	height: 14px;
+}
+
 .tabbed-container-add-btn:hover {
 	color: var(--text-normal);
 	background-color: var(--background-modifier-hover);
@@ -149,20 +225,10 @@
 	outline-offset: -2px;
 }
 
-/* --- Animated underline indicator --- */
-.tabbed-container-indicator {
-	position: absolute;
-	bottom: 0;
-	left: 0;
-	height: 2px;
-	background-color: var(--interactive-accent);
-	border-radius: 2px 2px 0 0;
-	transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-	            width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-	pointer-events: none;
-}
+/* ============================================================
+   Tab content area
+   ============================================================ */
 
-/* --- Tab content area --- */
 .tabbed-container-content {
 	padding: 16px 20px;
 	min-height: 48px;
@@ -184,7 +250,8 @@
 	}
 }
 
-/* --- Content normalization --- */
+/* --- Content normalization ---
+   Ensure rendered Markdown inside tabs blends with the note. */
 .tabbed-container-tab-content > *:first-child {
 	margin-top: 0;
 }
@@ -193,10 +260,12 @@
 	margin-bottom: 0;
 }
 
+/* Task checkboxes remain interactive */
 .tabbed-container-tab-content .task-list-item-checkbox {
 	cursor: pointer;
 }
 
+/* Embedded content fills width (e.g., Dataview tables) */
 .tabbed-container-tab-content .dataview {
 	width: 100%;
 }
@@ -213,14 +282,16 @@
 
 /* --- Drop zone feedback (content drop) --- */
 .tabbed-container-content.drop-active {
-	background-color: var(--interactive-accent);
 	background-color: color-mix(in srgb, var(--interactive-accent) 8%, transparent);
 	outline: 2px dashed var(--interactive-accent);
 	outline-offset: -4px;
 	border-radius: 0 0 8px 8px;
 }
 
-/* --- Drag-and-drop tab reorder visual cues --- */
+/* ============================================================
+   Drag-and-drop tab reorder visual cues
+   ============================================================ */
+
 .tabbed-container-tab-button.is-dragging {
 	opacity: 0.4;
 }
@@ -233,7 +304,10 @@
 	box-shadow: inset -3px 0 0 0 var(--interactive-accent);
 }
 
-/* --- Empty state (no tabs at all) --- */
+/* ============================================================
+   Empty state (no tabs at all)
+   ============================================================ */
+
 .tabbed-container-empty-state {
 	display: flex;
 	flex-direction: column;
@@ -269,7 +343,10 @@
 	opacity: 0.85;
 }
 
-/* --- Responsive: narrower viewports --- */
+/* ============================================================
+   Responsive: narrower viewports
+   ============================================================ */
+
 @media (max-width: 500px) {
 	.tabbed-container-tab-button {
 		padding: 8px 10px;
@@ -282,7 +359,10 @@
 	}
 }
 
-/* --- Print styles --- */
+/* ============================================================
+   Print styles
+   ============================================================ */
+
 @media print {
 	.tabbed-container {
 		border: 1px solid #ccc;
