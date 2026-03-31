@@ -1,90 +1,201 @@
-# Obsidian Sample Plugin
+# Obsidian Tabbed Containers
 
-This is a sample plugin for Obsidian (https://obsidian.md).
+Create elegant, embedded tabbed containers directly within your Obsidian notes. Content inside tabs is rendered as **first-class Markdown** — task checkboxes, wikilinks, embeds, Dataview queries, and all other native Obsidian features work seamlessly.
 
-This project uses TypeScript to provide type checking and documentation.
-The repo depends on the latest plugin API (obsidian.d.ts) in TypeScript Definition format, which contains TSDoc comments describing what it does.
+![Obsidian](https://img.shields.io/badge/Obsidian-v0.15.0+-7C3AED)
 
-This sample plugin demonstrates some of the basic functionality the plugin API can do.
-- Adds a ribbon icon, which shows a Notice when clicked.
-- Adds a command "Open modal (simple)" which opens a Modal.
-- Adds a plugin setting tab to the settings page.
-- Registers a global click event and output 'click' to the console.
-- Registers a global interval which logs 'setInterval' to the console.
+## Features
 
-## First time developing plugins?
+- **Native Markdown rendering** — content inside tabs goes through Obsidian's full rendering pipeline, so everything works: `[[wikilinks]]`, `![[embeds]]`, task checkboxes, callouts, Dataview, and more.
+- **Task checkbox toggling** — checking/unchecking a task inside a tab updates the source file, just like in a normal note.
+- **Theme-adaptive styling** — inherits your active Obsidian theme via CSS custom properties (`--interactive-accent`, `--background-secondary`, etc.). No hardcoded colors.
+- **Animated tab indicator** — smooth underline transition when switching tabs, inspired by Tailwind UI Tabs.
+- **Keyboard accessible** — full arrow-key navigation and proper ARIA roles (`role="tab"`, `role="tabpanel"`, `aria-selected`).
+- **Responsive** — adapts to narrow panes and mobile viewports. Horizontally scrollable tab bar for many tabs.
+- **Print-friendly** — clean print styles that show the active tab clearly.
+- **Lightweight** — vanilla DOM manipulation, no framework dependencies. Minimal startup cost.
 
-Quick starting guide for new plugin devs:
+## Syntax
 
-- Check if [someone already developed a plugin for what you want](https://obsidian.md/plugins)! There might be an existing plugin similar enough that you can partner up with.
-- Make a copy of this repo as a template with the "Use this template" button (login to GitHub if you don't see it).
-- Clone your repo to a local development folder. For convenience, you can place this folder in your `.obsidian/plugins/your-plugin-name` folder.
-- Install NodeJS, then run `npm i` in the command line under your repo folder.
-- Run `npm run dev` to compile your plugin from `main.ts` to `main.js`.
-- Make changes to `main.ts` (or create new `.ts` files). Those changes should be automatically compiled into `main.js`.
-- Reload Obsidian to load the new version of your plugin.
-- Enable plugin in settings window.
-- For updates to the Obsidian API run `npm update` in the command line under your repo folder.
+Use a fenced code block with the language identifier `tabs`. Each tab is defined by a `---` delimiter followed by the tab title:
 
-## Releasing new releases
+````markdown
+```tabs
+--- Overview
+This is the **overview** tab. Full Markdown is supported.
 
-- Update your `manifest.json` with your new version number, such as `1.0.1`, and the minimum Obsidian version required for your latest release.
-- Update your `versions.json` file with `"new-plugin-version": "minimum-obsidian-version"` so older versions of Obsidian can download an older version of your plugin that's compatible.
-- Create new GitHub release using your new version number as the "Tag version". Use the exact version number, don't include a prefix `v`. See here for an example: https://github.com/obsidianmd/obsidian-sample-plugin/releases
-- Upload the files `manifest.json`, `main.js`, `styles.css` as binary attachments. Note: The manifest.json file must be in two places, first the root path of your repository and also in the release.
-- Publish the release.
+- Item one
+- Item two
 
-> You can simplify the version bump process by running `npm version patch`, `npm version minor` or `npm version major` after updating `minAppVersion` manually in `manifest.json`.
-> The command will bump version in `manifest.json` and `package.json`, and add the entry for the new version to `versions.json`
+--- Tasks
+- [ ] Review the PR
+- [x] Write documentation
+- [ ] Deploy to production
 
-## Adding your plugin to the community plugin list
+--- Links
+Here are some useful links:
 
-- Check the [plugin guidelines](https://docs.obsidian.md/Plugins/Releasing/Plugin+guidelines).
-- Publish an initial version.
-- Make sure you have a `README.md` file in the root of your repo.
-- Make a pull request at https://github.com/obsidianmd/obsidian-releases to add your plugin.
+- [[Daily Note]]
+- [[Project Alpha]]
+- ![[Embedded Note]]
 
-## How to use
+--- Data
+```dataview
+TABLE file.mtime AS "Modified"
+FROM "Projects"
+SORT file.mtime DESC
+```
+```
+````
 
-- Clone this repo.
-- Make sure your NodeJS is at least v16 (`node --version`).
-- `npm i` or `yarn` to install dependencies.
-- `npm run dev` to start compilation in watch mode.
+### Syntax rules
 
-## Manually installing the plugin
+| Element | Format | Example |
+|---|---|---|
+| Code block language | `tabs` | `` ```tabs `` |
+| Tab delimiter | `--- ` followed by title | `--- My Tab Title` |
+| Tab content | Any valid Markdown | Paragraphs, lists, links, embeds, code blocks, etc. |
 
-- Copy over `main.js`, `styles.css`, `manifest.json` to your vault `VaultFolder/.obsidian/plugins/your-plugin-id/`.
+## Installation
 
-## Improve code quality with eslint
-- [ESLint](https://eslint.org/) is a tool that analyzes your code to quickly find problems. You can run ESLint against your plugin to find common bugs and ways to improve your code. 
-- This project already has eslint preconfigured, you can invoke a check by running`npm run lint`
-- Together with a custom eslint [plugin](https://github.com/obsidianmd/eslint-plugin) for Obsidan specific code guidelines.
-- A GitHub action is preconfigured to automatically lint every commit on all branches.
+### From Obsidian Community Plugins (recommended)
 
-## Funding URL
+1. Open **Settings** > **Community plugins** > **Browse**.
+2. Search for **Tabbed Containers**.
+3. Select **Install**, then **Enable**.
 
-You can include funding URLs where people who use your plugin can financially support it.
+### Manual installation
 
-The simple way is to set the `fundingUrl` field to your link in your `manifest.json` file:
+1. Download `main.js`, `styles.css`, and `manifest.json` from the [latest release](https://github.com/iahmedani/obsidian_notes_tab/releases).
+2. Create a folder: `<YourVault>/.obsidian/plugins/obsidian-tabbed-containers/`
+3. Copy the three files into that folder.
+4. Reload Obsidian and enable the plugin in **Settings** > **Community plugins**.
 
-```json
-{
-    "fundingUrl": "https://buymeacoffee.com"
-}
+## Commands
+
+| Command | Description |
+|---|---|
+| **Insert tabs template** | Inserts a starter `tabs` code block at the cursor position. |
+
+Open the command palette (`Ctrl/Cmd + P`) and search for "Insert tabs template".
+
+## Settings
+
+| Setting | Options | Default |
+|---|---|---|
+| Tab style | Underline / Pill | Underline |
+
+Access via **Settings** > **Community plugins** > **Tabbed Containers**.
+
+## Architecture
+
+Understanding how native Markdown rendering works inside the tabs:
+
+### The rendering pipeline
+
+```
+┌─────────────────────────────────────────────────┐
+│  ```tabs code block detected by Obsidian         │
+│                                                   │
+│  registerMarkdownCodeBlockProcessor("tabs", ...)  │
+└──────────────────────┬──────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────┐
+│  parseTabs(source) → ParsedTab[]                 │
+│  Splits raw text on `--- Title` delimiters       │
+└──────────────────────┬──────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────┐
+│  TabbedContainerComponent (MarkdownRenderChild)  │
+│  Registered via ctx.addChild(component)          │
+└──────────────────────┬──────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────┐
+│  MarkdownRenderer.render(                        │
+│    app,          // Obsidian App instance         │
+│    tab.content,  // Raw Markdown string           │
+│    contentEl,    // Target DOM element            │
+│    sourcePath,   // Current note's file path      │
+│    this          // Component for lifecycle       │
+│  )                                                │
+└─────────────────────────────────────────────────┘
 ```
 
-If you have multiple URLs, you can also do:
+### Why this matters
 
-```json
-{
-    "fundingUrl": {
-        "Buy Me a Coffee": "https://buymeacoffee.com",
-        "GitHub Sponsor": "https://github.com/sponsors",
-        "Patreon": "https://www.patreon.com/"
-    }
-}
+Three parameters make tabs behave like native note content:
+
+1. **`sourcePath`** — Passed from `MarkdownPostProcessorContext` to `MarkdownRenderer.render()`. This is how Obsidian knows which file to update when a task checkbox is toggled, and how wikilinks resolve relative to the current note.
+
+2. **`this` (component)** — The `TabbedContainerComponent` extends `MarkdownRenderChild` (which extends `Component`). When passed as the lifecycle owner, all child components created during rendering (Dataview blocks, embedded queries, dynamic content) are registered as children. When the tab container is removed, `onunload()` cascades to all children — preventing memory leaks.
+
+3. **`ctx.addChild(component)`** — Registers our component with Obsidian's rendering context. This ties the container's lifecycle to the note view itself, so cleanup happens automatically when the note is closed or the code block is re-rendered.
+
+### File structure
+
+```
+src/
+  main.ts       # Plugin entry, code block processor, TabbedContainerComponent
+  settings.ts   # Settings interface, defaults, and settings tab UI
+styles.css      # Theme-adaptive CSS using Obsidian custom properties
+manifest.json   # Plugin metadata
 ```
 
-## API Documentation
+## Development
 
-See https://docs.obsidian.md
+### Prerequisites
+
+- Node.js v16+
+- npm
+
+### Setup
+
+```bash
+git clone https://github.com/iahmedani/obsidian_notes_tab.git
+cd obsidian_notes_tab
+npm install
+```
+
+### Development (watch mode)
+
+```bash
+npm run dev
+```
+
+This compiles `src/main.ts` to `main.js` and watches for changes.
+
+### Production build
+
+```bash
+npm run build
+```
+
+### Lint
+
+```bash
+npm run lint
+```
+
+### Testing in Obsidian
+
+Copy the compiled files to your vault's plugin directory:
+
+```bash
+cp main.js styles.css manifest.json <YourVault>/.obsidian/plugins/obsidian-tabbed-containers/
+```
+
+Then reload Obsidian and enable the plugin.
+
+## Releasing
+
+1. Update the `version` field in `manifest.json`.
+2. Run `npm version <patch|minor|major>` to sync `package.json` and `versions.json`.
+3. Create a GitHub release with the version number as the tag (no `v` prefix).
+4. Attach `main.js`, `styles.css`, and `manifest.json` to the release.
+
+## License
+
+[0-BSD](LICENSE)
