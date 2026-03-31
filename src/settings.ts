@@ -23,7 +23,9 @@ export class TabbedContainersSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		containerEl.createEl("h2", { text: "Tabbed Containers" });
+		new Setting(containerEl)
+			.setName("Appearance")
+			.setHeading();
 
 		new Setting(containerEl)
 			.setName("Tab style")
@@ -31,7 +33,7 @@ export class TabbedContainersSettingTab extends PluginSettingTab {
 			.addDropdown((dropdown) =>
 				dropdown
 					.addOption("underline", "Underline (default)")
-					.addOption("pill", "Pill / Filled")
+					.addOption("pill", "Pill / filled")
 					.setValue(this.plugin.settings.tabStyle)
 					.onChange(async (value) => {
 						this.plugin.settings.tabStyle = value as TabStyle;

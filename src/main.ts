@@ -258,15 +258,12 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 		contentArea: HTMLElement,
 		indicator: HTMLElement,
 	): HTMLElement {
-		const btn = createEl("button", {
-			cls: "tabbed-container-tab-button",
-			attr: {
-				role: "tab",
-				"aria-selected": String(index === this.activeIndex),
-				tabindex: index === this.activeIndex ? "0" : "-1",
-				draggable: "true",
-			},
-		});
+		const btn = document.createElement("button");
+		btn.className = "tabbed-container-tab-button";
+		btn.setAttribute("role", "tab");
+		btn.setAttribute("aria-selected", String(index === this.activeIndex));
+		btn.setAttribute("tabindex", index === this.activeIndex ? "0" : "-1");
+		btn.setAttribute("draggable", "true");
 
 		// Icon (emoji prefix)
 		if (tab.icon) {
@@ -399,7 +396,7 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 			return;
 		}
 
-		MarkdownRenderer.render(
+		void MarkdownRenderer.render(
 			this.plugin.app,
 			tab.content,
 			contentEl,
@@ -414,10 +411,10 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 		const tab = this.tabs[index];
 		if (!tab) return;
 
-		const input = createEl("input", {
-			cls: "tabbed-container-rename-input",
-			attr: { type: "text", value: tab.title },
-		});
+		const input = document.createElement("input");
+		input.className = "tabbed-container-rename-input";
+		input.type = "text";
+		input.value = tab.title;
 
 		labelEl.replaceWith(input);
 		input.focus();
@@ -430,10 +427,9 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 
 			const newTitle = input.value.trim() || tab.title;
 			tab.title = newTitle;
-			const newLabel = createSpan({
-				text: newTitle,
-				cls: "tabbed-container-tab-label",
-			});
+			const newLabel = document.createElement("span");
+			newLabel.className = "tabbed-container-tab-label";
+			newLabel.textContent = newTitle;
 			input.replaceWith(newLabel);
 			this.persistTabs();
 		};
@@ -480,9 +476,9 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 		let dragIndex = -1;
 
 		tabBar.addEventListener("dragstart", (e: DragEvent) => {
-			const btn = (e.target as HTMLElement).closest(
+			const btn = (e.target as HTMLElement).closest<HTMLElement>(
 				".tabbed-container-tab-button",
-			) as HTMLElement | null;
+			);
 			if (!btn) return;
 
 			dragIndex = this.getTabButtonIndex(tabBar, btn);
@@ -499,9 +495,9 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 			e.preventDefault();
 			if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
 
-			const btn = (e.target as HTMLElement).closest(
+			const btn = (e.target as HTMLElement).closest<HTMLElement>(
 				".tabbed-container-tab-button",
-			) as HTMLElement | null;
+			);
 			if (!btn) return;
 
 			// Clear previous indicators
@@ -517,9 +513,9 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 		});
 
 		tabBar.addEventListener("dragleave", (e: DragEvent) => {
-			const btn = (e.target as HTMLElement).closest(
+			const btn = (e.target as HTMLElement).closest<HTMLElement>(
 				".tabbed-container-tab-button",
-			) as HTMLElement | null;
+			);
 			if (btn) btn.removeClass("drag-over-left", "drag-over-right");
 		});
 
@@ -527,9 +523,9 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 			e.preventDefault();
 			this.clearDragStyles(tabBar);
 
-			const btn = (e.target as HTMLElement).closest(
+			const btn = (e.target as HTMLElement).closest<HTMLElement>(
 				".tabbed-container-tab-button",
-			) as HTMLElement | null;
+			);
 			if (!btn || dragIndex < 0) return;
 
 			let dropIndex = this.getTabButtonIndex(tabBar, btn);
@@ -657,7 +653,7 @@ class TabbedContainerComponent extends MarkdownRenderChild {
 
 	private persistTabs(): void {
 		const newSource = serializeTabs(this.tabs);
-		updateSourceBlock(this.plugin, this.ctx, this.containerEl, newSource);
+		void updateSourceBlock(this.plugin, this.ctx, this.containerEl, newSource);
 		// Obsidian re-renders the block automatically after vault.modify()
 	}
 }
