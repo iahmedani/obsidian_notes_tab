@@ -1,99 +1,280 @@
-import {App, Editor, MarkdownView, Modal, Notice, Plugin} from 'obsidian';
-import {DEFAULT_SETTINGS, MyPluginSettings, SampleSettingTab} from "./settings";
+import { MarkdownRenderChild, MarkdownRenderer, Plugin } from "obsidian";
+import { DEFAULT_SETTINGS, TabbedContainersSettings, TabbedContainersSettingTab } from "./settings";
 
-// Remember to rename these classes and interfaces!
+/**
+ * Parsed representation of a single tab within a tabbed container.
+ */
+interface ParsedTab {
+	title: string;
+	content: string;
+}
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+/**
+ * Parses the raw content of a ```tabs code block into individual tabs.
+ *
+ * Syntax:
+ *   ```tabs
+ *   --- Tab Title 1
+ *   Content for tab 1 (full Markdown supported)
+ *
+ *   --- Tab Title 2
+ *   Content for tab 2
+ *   ```
+ *
+ * The delimiter is a line starting with `---` followed by the tab title.
+ */
+function parseTabs(source: string): ParsedTab[] {
+	const tabs: ParsedTab[] = [];
+	const lines = source.split("\n");
 
-	async onload() {
-		await this.loadSettings();
+	let currentTitle: string | null = null;
+	let currentLines: string[] = [];
 
-		// This creates an icon in the left ribbon.
-		this.addRibbonIcon('dice', 'Sample', (evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status bar text');
-
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-modal-simple',
-			name: 'Open modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
+	for (const line of lines) {
+		const match = line.match(/^---\s+(.+)$/);
+		if (match) {
+			// Flush previous tab
+			if (currentTitle !== null) {
+				tabs.push({
+					title: currentTitle,
+					content: currentLines.join("\n").trim(),
+				});
 			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'replace-selected',
-			name: 'Replace selected content',
-			editorCallback: (editor: Editor, view: MarkdownView) => {
-				editor.replaceSelection('Sample editor command');
-			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-modal-complex',
-			name: 'Open modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
+			currentTitle = match[1]!.trim();
+			currentLines = [];
+		} else {
+			currentLines.push(line);
+		}
+	}
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
+	// Flush last tab
+	if (currentTitle !== null) {
+		tabs.push({
+			title: currentTitle,
+			content: currentLines.join("\n").trim(),
+		});
+	}
+
+	return tabs;
+}
+
+/**
+ * A MarkdownRenderChild that manages the lifecycle of a single tabbed container.
+ * This ensures that all child components (rendered Markdown, Dataview blocks, etc.)
+ * are properly cleaned up when the container is removed from the DOM.
+ */
+class TabbedContainerComponent extends MarkdownRenderChild {
+	private tabs: ParsedTab[];
+	private sourcePath: string;
+	private plugin: TabbedContainersPlugin;
+	private activeIndex = 0;
+
+	constructor(
+		containerEl: HTMLElement,
+		tabs: ParsedTab[],
+		sourcePath: string,
+		plugin: TabbedContainersPlugin,
+	) {
+		super(containerEl);
+		this.tabs = tabs;
+		this.sourcePath = sourcePath;
+		this.plugin = plugin;
+	}
+
+	override onload(): void {
+		this.render();
+	}
+
+	private render(): void {
+		const el = this.containerEl;
+		el.empty();
+		el.addClass("tabbed-container");
+
+		if (this.tabs.length === 0) {
+			el.createEl("p", {
+				text: "No tabs defined. Use --- Tab Title to create tabs.",
+				cls: "tabbed-container-empty",
+			});
+			return;
+		}
+
+		// --- Tab bar ---
+		const tabBar = el.createDiv({ cls: "tabbed-container-tab-bar" });
+		const tabContentArea = el.createDiv({ cls: "tabbed-container-content" });
+
+		// Animated underline indicator
+		const indicator = tabBar.createDiv({ cls: "tabbed-container-indicator" });
+
+		const tabButtons: HTMLElement[] = [];
+
+		this.tabs.forEach((tab, index) => {
+			const button = tabBar.createEl("button", {
+				text: tab.title,
+				cls: "tabbed-container-tab-button",
+			});
+			button.setAttribute("role", "tab");
+			button.setAttribute("aria-selected", String(index === this.activeIndex));
+			button.setAttribute("tabindex", index === this.activeIndex ? "0" : "-1");
+
+			button.addEventListener("click", () => {
+				this.switchTab(index, tabButtons, tabContentArea, indicator);
+			});
+
+			// Keyboard navigation
+			button.addEventListener("keydown", (e: KeyboardEvent) => {
+				let targetIndex = -1;
+				if (e.key === "ArrowRight") {
+					targetIndex = (index + 1) % this.tabs.length;
+				} else if (e.key === "ArrowLeft") {
+					targetIndex = (index - 1 + this.tabs.length) % this.tabs.length;
+				} else if (e.key === "Home") {
+					targetIndex = 0;
+				} else if (e.key === "End") {
+					targetIndex = this.tabs.length - 1;
 				}
-				return false;
-			}
+
+				if (targetIndex >= 0) {
+					e.preventDefault();
+					tabButtons[targetIndex]?.focus();
+					this.switchTab(targetIndex, tabButtons, tabContentArea, indicator);
+				}
+			});
+
+			tabButtons.push(button);
 		});
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
+		// Render the initially active tab
+		this.renderTabContent(this.activeIndex, tabContentArea);
+		this.updateActiveStates(tabButtons);
 
-		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
-		// Using this function will automatically remove the event listener when this plugin is disabled.
-		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			new Notice("Click");
+		// Position indicator after DOM is ready
+		requestAnimationFrame(() => {
+			this.positionIndicator(indicator, tabButtons);
 		});
-
-		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
-		this.registerInterval(window.setInterval(() => console.log('setInterval'), 5 * 60 * 1000));
-
 	}
 
-	onunload() {
+	private switchTab(
+		index: number,
+		tabButtons: HTMLElement[],
+		contentArea: HTMLElement,
+		indicator: HTMLElement,
+	): void {
+		if (index === this.activeIndex) return;
+
+		this.activeIndex = index;
+		this.updateActiveStates(tabButtons);
+		this.positionIndicator(indicator, tabButtons);
+
+		// Re-render content area
+		contentArea.empty();
+		this.renderTabContent(index, contentArea);
 	}
 
-	async loadSettings() {
-		this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData() as Partial<MyPluginSettings>);
+	private updateActiveStates(tabButtons: HTMLElement[]): void {
+		tabButtons.forEach((btn, i) => {
+			const isActive = i === this.activeIndex;
+			btn.toggleClass("is-active", isActive);
+			btn.setAttribute("aria-selected", String(isActive));
+			btn.setAttribute("tabindex", isActive ? "0" : "-1");
+		});
 	}
 
-	async saveSettings() {
-		await this.saveData(this.settings);
+	private positionIndicator(indicator: HTMLElement, tabButtons: HTMLElement[]): void {
+		const activeBtn = tabButtons[this.activeIndex];
+		if (!activeBtn) return;
+
+		indicator.style.left = `${activeBtn.offsetLeft}px`;
+		indicator.style.width = `${activeBtn.offsetWidth}px`;
+	}
+
+	/**
+	 * Renders a tab's Markdown content using Obsidian's native MarkdownRenderer.render().
+	 *
+	 * CRITICAL ARCHITECTURE DECISION:
+	 * We pass `this` (a MarkdownRenderChild, which extends Component) as the
+	 * `component` parameter. This means:
+	 *
+	 * 1. All child components created during rendering (Dataview blocks, embedded
+	 *    queries, etc.) are registered as children of this component.
+	 * 2. When the tabbed container is removed from the DOM, `onunload()` is called,
+	 *    which cascades to all children — preventing memory leaks.
+	 * 3. Interactive elements like task checkboxes get properly bound to the source
+	 *    file because we pass the correct `sourcePath`.
+	 * 4. Wikilinks, embeds, and all other Obsidian-native Markdown features work
+	 *    because the rendering goes through the same pipeline as normal note content.
+	 */
+	private renderTabContent(index: number, container: HTMLElement): void {
+		const tab = this.tabs[index];
+		if (!tab) return;
+
+		const contentEl = container.createDiv({
+			cls: "tabbed-container-tab-content",
+		});
+		contentEl.setAttribute("role", "tabpanel");
+
+		// Use Obsidian's MarkdownRenderer to render full Markdown with all native
+		// features: wikilinks, embeds, task checkboxes, Dataview, etc.
+		MarkdownRenderer.render(
+			this.plugin.app,
+			tab.content,
+			contentEl,
+			this.sourcePath,
+			this,
+		);
 	}
 }
 
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
+export default class TabbedContainersPlugin extends Plugin {
+	settings: TabbedContainersSettings = DEFAULT_SETTINGS;
+
+	async onload(): Promise<void> {
+		await this.loadSettings();
+
+		// Register the ```tabs code block processor
+		this.registerMarkdownCodeBlockProcessor(
+			"tabs",
+			(source: string, el: HTMLElement, ctx) => {
+				const tabs = parseTabs(source);
+				const component = new TabbedContainerComponent(
+					el,
+					tabs,
+					ctx.sourcePath,
+					this,
+				);
+				ctx.addChild(component);
+			},
+		);
+
+		// Command to insert a tab template at the cursor
+		this.addCommand({
+			id: "insert-tabs-template",
+			name: "Insert tabs template",
+			editorCallback: (editor) => {
+				const template = [
+					"```tabs",
+					"--- Tab 1",
+					"Content for tab 1",
+					"",
+					"--- Tab 2",
+					"Content for tab 2",
+					"```",
+				].join("\n");
+				editor.replaceSelection(template);
+			},
+		});
+
+		this.addSettingTab(new TabbedContainersSettingTab(this.app, this));
 	}
 
-	onOpen() {
-		let {contentEl} = this;
-		contentEl.setText('Woah!');
+	async loadSettings(): Promise<void> {
+		this.settings = Object.assign(
+			{},
+			DEFAULT_SETTINGS,
+			(await this.loadData()) as Partial<TabbedContainersSettings>,
+		);
 	}
 
-	onClose() {
-		const {contentEl} = this;
-		contentEl.empty();
+	async saveSettings(): Promise<void> {
+		await this.saveData(this.settings);
 	}
 }
