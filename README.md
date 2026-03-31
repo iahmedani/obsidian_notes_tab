@@ -6,11 +6,24 @@ Create elegant, embedded tabbed containers directly within your Obsidian notes. 
 
 ## Features
 
+### Interactive tab management
+- **Add tabs** — click the `+` button in the tab bar to add a new tab instantly.
+- **Delete tabs** — hover over a tab to reveal the `×` button; click to remove it.
+- **Rename tabs** — double-click any tab title to rename it inline. Press `Enter` to confirm, `Escape` to cancel.
+- **Icon/emoji support** — prefix your tab title with an emoji: `--- 📋 Tasks` renders the emoji as a tab icon.
+- **Drag-and-drop reorder** — drag tabs within the bar to rearrange their order.
+- **Drag-and-drop content** — drag text from your notes and drop it onto a tab's content area to append it.
+- **3 tabs by default** — the "Insert tabs template" command creates 3 starter tabs.
+
+### Rendering & theming
 - **Native Markdown rendering** — content inside tabs goes through Obsidian's full rendering pipeline, so everything works: `[[wikilinks]]`, `![[embeds]]`, task checkboxes, callouts, Dataview, and more.
 - **Task checkbox toggling** — checking/unchecking a task inside a tab updates the source file, just like in a normal note.
+- **Source-synced editing** — all UI actions (add, delete, rename, reorder) write back to the Markdown source, so your notes stay portable and version-controllable.
 - **Theme-adaptive styling** — inherits your active Obsidian theme via CSS custom properties (`--interactive-accent`, `--background-secondary`, etc.). No hardcoded colors.
 - **Animated tab indicator** — smooth underline transition when switching tabs, inspired by Tailwind UI Tabs.
-- **Keyboard accessible** — full arrow-key navigation and proper ARIA roles (`role="tab"`, `role="tabpanel"`, `aria-selected`).
+
+### Accessibility & polish
+- **Keyboard accessible** — arrow keys to navigate tabs, `F2` to rename, `Delete` to remove, `Home`/`End` to jump. Proper ARIA roles throughout.
 - **Responsive** — adapts to narrow panes and mobile viewports. Horizontally scrollable tab bar for many tabs.
 - **Print-friendly** — clean print styles that show the active tab clearly.
 - **Lightweight** — vanilla DOM manipulation, no framework dependencies. Minimal startup cost.
@@ -54,6 +67,7 @@ SORT file.mtime DESC
 |---|---|---|
 | Code block language | `tabs` | `` ```tabs `` |
 | Tab delimiter | `--- ` followed by title | `--- My Tab Title` |
+| Tab with icon | `--- ` + emoji + title | `--- 📋 My Tab Title` |
 | Tab content | Any valid Markdown | Paragraphs, lists, links, embeds, code blocks, etc. |
 
 ## Installation
