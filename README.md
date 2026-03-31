@@ -78,12 +78,61 @@ SORT file.mtime DESC
 2. Search for **Tabbed Containers**.
 3. Select **Install**, then **Enable**.
 
-### Manual installation
+### Manual installation (from release)
 
 1. Download `main.js`, `styles.css`, and `manifest.json` from the [latest release](https://github.com/iahmedani/obsidian_notes_tab/releases).
 2. Create a folder: `<YourVault>/.obsidian/plugins/obsidian-tabbed-containers/`
 3. Copy the three files into that folder.
 4. Reload Obsidian and enable the plugin in **Settings** > **Community plugins**.
+
+### Local development installation (build from source)
+
+Use this when you want to run the plugin from source — useful for contributing, testing changes, or running a pre-release version.
+
+1. **Clone the repo** directly into your vault's plugins folder:
+
+   ```bash
+   cd <YourVault>/.obsidian/plugins
+   git clone https://github.com/iahmedani/obsidian_notes_tab.git obsidian-tabbed-containers
+   cd obsidian-tabbed-containers
+   ```
+
+2. **Install dependencies and build:**
+
+   ```bash
+   npm install
+   npm run build
+   ```
+
+   This produces `main.js` in the project root (alongside the existing `manifest.json` and `styles.css`).
+
+3. **Enable the plugin:**
+
+   - Open Obsidian.
+   - Go to **Settings** > **Community plugins**.
+   - If you see a warning about restricted mode, disable restricted mode.
+   - Find **Tabbed Containers** in the installed plugins list and toggle it on.
+   - If it doesn't appear, click the **Reload plugins** button (circular arrow icon).
+
+4. **Development workflow (optional):**
+
+   For live-reloading during development:
+
+   ```bash
+   npm run dev
+   ```
+
+   This starts esbuild in watch mode — any change to `src/*.ts` recompiles `main.js` automatically. To see the changes in Obsidian, either:
+   - Run the **Reload app without saving** command (`Ctrl/Cmd + Shift + R`), or
+   - Use the [Hot Reload](https://github.com/pjeby/hot-reload) community plugin for automatic reloading.
+
+5. **Lint your changes:**
+
+   ```bash
+   npm run lint
+   ```
+
+> **Note:** Make sure your Node.js version is v16 or higher (`node --version`).
 
 ## Commands
 
