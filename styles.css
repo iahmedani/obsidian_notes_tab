@@ -14,52 +14,6 @@
 	overflow: hidden;
 }
 
-/* --- Toolbar (top-right corner) --- */
-.tabbed-container-toolbar {
-	position: absolute;
-	top: 4px;
-	right: 8px;
-	z-index: 1;
-	display: flex;
-	gap: 4px;
-	opacity: 0;
-	transition: opacity 0.15s ease;
-}
-
-.tabbed-container:hover .tabbed-container-toolbar {
-	opacity: 1;
-}
-
-.tabbed-container-edit-btn {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	width: 24px;
-	height: 24px;
-	border: none;
-	border-radius: 4px;
-	background: var(--background-primary);
-	color: var(--text-muted);
-	cursor: pointer;
-	transition: color 0.15s ease, background-color 0.15s ease;
-	box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.tabbed-container-edit-btn svg {
-	width: 14px;
-	height: 14px;
-}
-
-.tabbed-container-edit-btn:hover {
-	color: var(--text-normal);
-	background-color: var(--background-modifier-hover);
-}
-
-.tabbed-container-edit-btn:focus-visible {
-	outline: 2px solid var(--interactive-accent);
-	outline-offset: -2px;
-}
-
 /* --- Tab bar --- */
 .tabbed-container-tab-bar {
 	display: flex;
@@ -283,6 +237,7 @@
 }
 
 .tabbed-container-tab-content {
+	position: relative;
 	animation: tabbed-container-fade-in 0.2s ease;
 }
 
@@ -297,23 +252,130 @@
 	}
 }
 
+/* --- Content toolbar (pencil / code buttons) --- */
+.tabbed-container-content-toolbar {
+	position: absolute;
+	top: 0;
+	right: 0;
+	display: flex;
+	gap: 2px;
+	opacity: 0;
+	transition: opacity 0.15s ease;
+	z-index: 1;
+}
+
+.tabbed-container-tab-content:hover .tabbed-container-content-toolbar {
+	opacity: 1;
+}
+
+.tabbed-container-content-action-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 24px;
+	height: 24px;
+	border: none;
+	border-radius: 4px;
+	background: var(--background-secondary);
+	color: var(--text-muted);
+	cursor: pointer;
+	transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.tabbed-container-content-action-btn svg {
+	width: 13px;
+	height: 13px;
+}
+
+.tabbed-container-content-action-btn:hover {
+	color: var(--text-normal);
+	background-color: var(--background-modifier-hover);
+}
+
+/* --- Inline editor (textarea) --- */
+.tabbed-container-editor {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.tabbed-container-textarea {
+	width: 100%;
+	min-height: 80px;
+	max-height: 400px;
+	height: var(--textarea-height, auto);
+	padding: 10px 12px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	background-color: var(--background-primary-alt);
+	color: var(--text-normal);
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-small);
+	line-height: 1.5;
+	resize: vertical;
+	outline: none;
+	transition: border-color 0.15s ease;
+}
+
+.tabbed-container-textarea:focus {
+	border-color: var(--interactive-accent);
+	box-shadow: 0 0 0 2px var(--interactive-accent-hover);
+}
+
+.tabbed-container-save-bar {
+	display: flex;
+	gap: 8px;
+	justify-content: flex-end;
+}
+
+.tabbed-container-save-btn,
+.tabbed-container-cancel-btn {
+	padding: 4px 14px;
+	border: 1px solid var(--background-modifier-border);
+	border-radius: 6px;
+	font-size: var(--font-ui-small);
+	font-family: var(--font-interface);
+	cursor: pointer;
+	transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.tabbed-container-save-btn {
+	background-color: var(--interactive-accent);
+	color: var(--text-on-accent);
+	border-color: var(--interactive-accent);
+}
+
+.tabbed-container-save-btn:hover {
+	opacity: 0.9;
+}
+
+.tabbed-container-cancel-btn {
+	background-color: transparent;
+	color: var(--text-muted);
+}
+
+.tabbed-container-cancel-btn:hover {
+	background-color: var(--background-modifier-hover);
+	color: var(--text-normal);
+}
+
 /* --- Content normalization ---
    Ensure rendered Markdown inside tabs blends with the note. */
-.tabbed-container-tab-content > *:first-child {
+.tabbed-container-rendered > *:first-child {
 	margin-top: 0;
 }
 
-.tabbed-container-tab-content > *:last-child {
+.tabbed-container-rendered > *:last-child {
 	margin-bottom: 0;
 }
 
 /* Task checkboxes remain interactive */
-.tabbed-container-tab-content .task-list-item-checkbox {
+.tabbed-container-rendered .task-list-item-checkbox {
 	cursor: pointer;
 }
 
 /* Embedded content fills width (e.g., Dataview tables) */
-.tabbed-container-tab-content .dataview {
+.tabbed-container-rendered .dataview {
 	width: 100%;
 }
 
@@ -432,7 +494,8 @@
 	.tabbed-container-indicator,
 	.tabbed-container-tab-delete,
 	.tabbed-container-add-btn,
-	.tabbed-container-toolbar {
+	.tabbed-container-content-toolbar,
+	.tabbed-container-editor {
 		display: none;
 	}
 }
